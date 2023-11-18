@@ -67,6 +67,7 @@ void define_gpio_module_stuff(void)
 
     // detect board revision and set up accordingly
     if (get_rpi_info(&rpiinfo)) {
+        rb_warn("get_rpi_info failed");
         rb_raise(rb_eRuntimeError, "this gem can only be run on a Raspberry Pi");
         setup_error = 1;
         return;
@@ -149,6 +150,7 @@ int is_gpio_input(unsigned int gpio)
 int is_rpi(void)
 {
     if (setup_error) {
+        rb_warn("setup_error was truthy");
         rb_raise(rb_eRuntimeError, "this gem can only be run on a Raspberry Pi");
         return 0;
     }

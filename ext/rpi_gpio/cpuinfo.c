@@ -33,10 +33,13 @@ SOFTWARE.
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include "ruby.h"
 #include "cpuinfo.h"
 
 int get_rpi_info(rpi_info *info)
 {
+   rb_warn("# get_rpi_info");
+
    FILE *fp;
    char buffer[1024];
    char hardware[1024];
@@ -45,38 +48,53 @@ int get_rpi_info(rpi_info *info)
    int len;
 
    if ((fp = fopen("/proc/device-tree/system/linux,revision", "r"))) {
+      rb_warn("## device-tree");
+
       uint32_t n;
       if (fread(&n, sizeof(n), 1, fp) != 1) {
          fclose(fp);
+         rb_raise(rb_eRuntimeError, "Couldn't deal with /proc/device-tree/system/linux,revision");
          return -1;
       }
       sprintf(revision, "%x", ntohl(n));
       found = 1;
    }
    else if ((fp = fopen("/proc/cpuinfo", "r"))) {
+      rb_warn("## cpuinfo");
+
       while(!feof(fp) && fgets(buffer, sizeof(buffer), fp)) {
+         rb_warn("### Hardware");
          sscanf(buffer, "Hardware	: %s", hardware);
          if (strcmp(hardware, "BCM2708") == 0 ||
              strcmp(hardware, "BCM2709") == 0 ||
              strcmp(hardware, "BCM2835") == 0 ||
              strcmp(hardware, "BCM2836") == 0 ||
              strcmp(hardware, "BCM2837") == 0 ) {
+            rb_warn("#### Found");
             found = 1;
          }
+         rb_warn("### Revision");
          sscanf(buffer, "Revision	: %s", revision);
       }
+      rb_warn("## end cpuinfo");
    }
-   else
+   else {
+      rb_warn("## CPU detection failed");
       return -1;
+   }
+
    fclose(fp);
 
    if (!found)
+      rb_warn("## Not found");
       return -1;
 
    if ((len = strlen(revision)) == 0)
+      rb_warn("## Revision empty");
       return -1;
 
    if (len >= 6 && strtol((char[]){revision[len-6],0}, NULL, 16) & 8) {
+      rb_warn("## Build info");
       // new scheme
       //info->rev = revision[len-1]-'0';
       strcpy(info->revision, revision);
@@ -102,6 +120,7 @@ int get_rpi_info(rpi_info *info)
             switch (revision[len-2]) {
                case '0': info->type = "Compute Module 3+"; info->p1_revision = 0; break;
                case '1': info->type = "Pi 4 Model B"; info->p1_revision = 3; break;
+               case '4': info->type = "Compute Module 4"; info->p1_revision = 3; break;
                default : info->type = "Unknown"; info->p1_revision = 3; break;
             } break;
          default: info->type = "Unknown"; info->p1_revision = 3; break;
@@ -132,6 +151,7 @@ int get_rpi_info(rpi_info *info)
          default: info->ram = "Unknown"; break;
       }
    } else {
+      rb_warn("## Old Build info");
       // old scheme
       info->ram = "Unknown";
       info->manufacturer = "Unknown";
@@ -243,6 +263,7 @@ int get_rpi_info(rpi_info *info)
          info->p1_revision = 3;
       }
    }
+   rb_warn("## Return zero");
    return 0;
 }
 
